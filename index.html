@@ -6,12 +6,15 @@
   <title>SecureTest - Ujian CBT</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { user-select: none; }
+    /* Mencegah teks bisa diblok atau disorot */
+    body { user-select: none; -webkit-user-select: none; -ms-user-select: none; }
+    /* Membuat kolom wacana bisa di-scroll secara independen */
     #wacana-container { overflow-y: auto; max-height: 80vh; }
   </style>
 </head>
 <body class="bg-gray-100 font-sans p-4">
 
+  <!-- ================= HALAMAN LOGIN ================= -->
   <div id="login-page" class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md mt-10">
     <h2 class="text-2xl font-bold mb-4 text-center">Login Ujian</h2>
     
@@ -25,49 +28,65 @@
       <option value="">-- Pilih Kelas Dahulu --</option>
     </select>
 
-    <button id="btn-mulai" class="w-full bg-blue-600 text-white p-2 rounded disabled:bg-gray-400" onclick="mulaiUjian()" disabled>Mulai Ujian</button>
+    <button id="btn-mulai" class="w-full bg-blue-600 text-white p-2 rounded disabled:bg-gray-400 font-bold" onclick="mulaiUjian()" disabled>MULAI UJIAN</button>
   </div>
 
+
+  <!-- ================= HALAMAN UJIAN ================= -->
   <div id="exam-page" class="hidden max-w-6xl mx-auto flex flex-col md:flex-row gap-4 mt-4">
+    
+    <!-- Bagian Kiri: Teks Wacana / Stimulus -->
     <div class="md:w-1/2 bg-white p-6 rounded-lg shadow-md" id="wacana-container">
-      <h3 class="font-bold text-lg mb-2 text-gray-700">Teks Referensi</h3>
-      <div id="wacana-teks" class="text-gray-600 leading-relaxed text-sm">Loading...</div>
+      <h3 class="font-bold text-lg mb-4 text-gray-700 border-b pb-2">Teks Referensi</h3>
+      <div id="wacana-teks" class="text-gray-700 leading-relaxed text-sm md:text-base text-justify">
+        Loading...
+      </div>
     </div>
 
+    <!-- Bagian Kanan: Pertanyaan & Pilihan Jawaban -->
     <div class="md:w-1/2 bg-white p-6 rounded-lg shadow-md relative">
       <div class="flex justify-between mb-4 border-b pb-2">
-        <span class="font-bold" id="nama-siswa-display"></span>
+        <span class="font-bold text-blue-700" id="nama-siswa-display"></span>
       </div>
-      <div id="soal-container" class="mb-6"></div>
-      <div class="flex justify-between">
-        <button class="bg-gray-300 p-2 rounded w-24" onclick="navigasi(-1)">KEMBALI</button>
-        <button id="btn-selanjutnya" class="bg-blue-600 text-white p-2 rounded w-32" onclick="navigasi(1)">SELANJUTNYA</button>
+      
+      <div id="soal-container" class="mb-8"></div>
+      
+      <div class="flex justify-between mt-auto">
+        <button class="bg-gray-300 hover:bg-gray-400 p-2 rounded w-24 font-bold text-sm" onclick="navigasi(-1)">KEMBALI</button>
+        <button id="btn-selanjutnya" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded w-32 font-bold text-sm" onclick="navigasi(1)">SELANJUTNYA</button>
       </div>
     </div>
   </div>
 
+
+  <!-- ================= JAVASCRIPT LOGIKA APLIKASI ================= -->
   <script>
-    // MASUKKAN URL GOOGLE SCRIPT ANDA DI SINI
+    // ⚠️ MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI BAWAH INI ⚠️
     const API_URL = "https://script.google.com/macros/s/AKfycbzMCIrWKekZ3pxz7EpbWrteGuP1mcUAfQI70HvTnC-8jYBNlX8Q8rx0U3qnFntwq16kcA/exec"; 
 
     let dbSiswa, dbWacana, dbSoal;
     let indexSoal = 0;
-    let jawabanSiswa = {};
+    let jawabanSiswa = {}; 
     let warningCount = 0;
 
-    // --- ANTI CHEAT ---
-    document.addEventListener('contextmenu', e => e.preventDefault());
-    document.addEventListener('copy', e => { e.preventDefault(); alert('Dilarang menyalin!'); });
+    // --- SISTEM KEAMANAN (ANTI CHEAT) ---
+    document.addEventListener('contextmenu', e => e.preventDefault()); // Blokir klik kanan
+    document.addEventListener('copy', e => { e.preventDefault(); alert('Tindakan menyalin dilarang!'); }); // Blokir copy
     
+    // Deteksi jika siswa membuka tab lain (Google, ChatGPT, dll)
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden" && !document.getElementById('exam-page').classList.contains('hidden')) {
         warningCount++;
-        alert(`PERINGATAN! Anda keluar tab. (Peringatan ${warningCount}/3)`);
-        if (warningCount >= 3) { alert("Ujian dihentikan!"); selesaiUjian(); }
+        alert(`PERINGATAN! Anda terdeteksi meninggalkan halaman ujian. (Peringatan ${warningCount}/3)`);
+        if (warningCount >= 3) { 
+          alert("Ujian dihentikan paksa karena pelanggaran berulang!"); 
+          prosesSelesai(); 
+        }
       }
     });
 
-    // --- FETCH DATA DARI API GOOGLE ---
+
+    // --- FUNGSI MENGAMBIL DATA DARI DATABASE (GOOGLE SHEETS) ---
     async function loadData() {
       try {
         const response = await fetch(API_URL + "?action=getData");
@@ -80,13 +99,14 @@
         selectKelas.innerHTML = '<option value="">-- Pilih Kelas --</option>';
         Object.keys(dbSiswa).forEach(k => selectKelas.add(new Option(k, k)));
       } catch (error) {
-        alert("Gagal memuat data ujian. Pastikan URL API benar.");
+        alert("Gagal memuat data ujian. Pastikan URL API benar dan internet stabil.");
       }
     }
     
-    // Jalankan saat web dibuka
-    loadData();
+    loadData(); // Jalankan saat web pertama kali dibuka
 
+
+    // --- FUNGSI LOGIN & DROPDOWN BERINGKAT ---
     function updateNama() {
       const kelas = document.getElementById('kelas').value;
       const selectNama = document.getElementById('nama');
@@ -108,41 +128,114 @@
       document.getElementById('login-page').classList.add('hidden');
       document.getElementById('exam-page').classList.remove('hidden');
       let sel = document.getElementById('nama');
-      document.getElementById('nama-siswa-display').innerText = sel.options[sel.selectedIndex].text;
+      document.getElementById('nama-siswa-display').innerText = "Peserta: " + sel.options[sel.selectedIndex].text;
       
+      // Paksa layar penuh (Fullscreen) jika browser mengizinkan
       document.documentElement.requestFullscreen().catch(() => {});
       tampilSoal();
     }
 
+
+    // --- FUNGSI MENAMPILKAN SOAL & LOGIKA JENIS SOAL ---
     function tampilSoal() {
       let soal = dbSoal[indexSoal];
+      
+      // Render Wacana
       let teksWacana = dbWacana[soal.id_wacana];
-      document.getElementById('wacana-teks').innerHTML = teksWacana ? teksWacana.replace(/\n/g, "<br>") : "Tidak ada referensi.";
+      document.getElementById('wacana-teks').innerHTML = teksWacana ? teksWacana.replace(/\n/g, "<br><br>") : "<span class='text-gray-400 italic'>Tidak ada teks referensi tambahan untuk soal ini.</span>";
 
-      let htmlSoal = `<p class="font-bold mb-4">${indexSoal + 1}. ${soal.pertanyaan}</p>`;
+      // Render Pertanyaan
+      let htmlSoal = `<p class="font-bold text-lg mb-4 text-justify">${indexSoal + 1}. ${soal.pertanyaan}</p>`;
+      
+      // 1. Logika Tampilan Pilihan Ganda Biasa
       if (soal.jenis === 'PG_Biasa') {
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
             let val = (idx + 1).toString();
             let checked = jawabanSiswa[soal.id_soal] === val ? "checked" : "";
-            htmlSoal += `<label class="block p-3 border rounded mb-2 hover:bg-blue-50 cursor-pointer">
-              <input type="radio" name="soal_pg" value="${val}" ${checked} onchange="jawabanSiswa['${soal.id_soal}'] = this.value"> ${opsiTeks}
+            htmlSoal += `
+            <label class="block p-3 border border-gray-300 rounded-lg mb-2 hover:bg-blue-50 cursor-pointer transition">
+              <input type="radio" name="soal_pg" value="${val}" ${checked} onchange="jawabanSiswa['${soal.id_soal}'] = this.value" class="mr-2"> 
+              ${opsiTeks}
+            </label>`;
+          }
+        });
+      } 
+      // 2. Logika Tampilan Pilihan Ganda Kompleks (Banyak Jawaban)
+      else if (soal.jenis === 'PG_Kompleks') {
+        if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
+        htmlSoal += `<p class="text-sm text-blue-600 mb-2 italic">*Pilih semua jawaban yang benar (bisa lebih dari satu)</p>`;
+        
+        soal.opsi.forEach((opsiTeks, idx) => {
+          if(opsiTeks) {
+            let val = (idx + 1).toString();
+            let checked = jawabanSiswa[soal.id_soal].includes(val) ? "checked" : "";
+            htmlSoal += `
+            <label class="block p-3 border border-gray-300 rounded-lg mb-2 hover:bg-blue-50 cursor-pointer transition">
+              <input type="checkbox" value="${val}" ${checked} onchange="updateKompleks('${soal.id_soal}', this.value, this.checked)" class="mr-2"> 
+              ${opsiTeks}
             </label>`;
           }
         });
       }
+      // 3. Logika Tampilan Benar / Salah (Tabel)
+      else if (soal.jenis === 'Benar_Salah') {
+        if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
+        
+        let tabel = `
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse border border-gray-300 mt-2">
+            <tr class="bg-gray-100">
+              <th class="border border-gray-300 p-3">Pernyataan</th>
+              <th class="border border-gray-300 p-3 text-center w-20">Benar</th>
+              <th class="border border-gray-300 p-3 text-center w-20">Salah</th>
+            </tr>`;
+            
+        soal.opsi.forEach((opsiTeks, idx) => {
+          if(opsiTeks) {
+             let valB = jawabanSiswa[soal.id_soal][idx] === 'B' ? 'checked' : '';
+             let valS = jawabanSiswa[soal.id_soal][idx] === 'S' ? 'checked' : '';
+             tabel += `
+             <tr class="hover:bg-gray-50">
+               <td class="border border-gray-300 p-3 text-sm">${opsiTeks}</td>
+               <td class="border border-gray-300 p-3 text-center bg-green-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="B" ${valB} onchange="updateBS('${soal.id_soal}', ${idx}, 'B')" class="w-4 h-4 cursor-pointer"></td>
+               <td class="border border-gray-300 p-3 text-center bg-red-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="S" ${valS} onchange="updateBS('${soal.id_soal}', ${idx}, 'S')" class="w-4 h-4 cursor-pointer"></td>
+             </tr>`;
+          }
+        });
+        tabel += `</table></div>`;
+        htmlSoal += tabel;
+      }
+
       document.getElementById('soal-container').innerHTML = htmlSoal;
 
+      // Update Tombol Navigasi
       let btnNext = document.getElementById('btn-selanjutnya');
       if (indexSoal === dbSoal.length - 1) {
-        btnNext.innerText = "SELESAI";
+        btnNext.innerText = "SELESAI & KIRIM";
         btnNext.classList.replace('bg-blue-600', 'bg-red-600');
+        btnNext.classList.replace('hover:bg-blue-700', 'hover:bg-red-700');
         btnNext.onclick = selesaiUjian;
       } else {
         btnNext.innerText = "SELANJUTNYA";
         btnNext.classList.replace('bg-red-600', 'bg-blue-600');
+        btnNext.classList.replace('hover:bg-red-700', 'hover:bg-blue-700');
         btnNext.onclick = () => navigasi(1);
       }
+    }
+
+    // Fungsi Pembantu Input Soal
+    function updateKompleks(id, nilai, isChecked) {
+      if (isChecked) {
+        jawabanSiswa[id].push(nilai);
+        jawabanSiswa[id].sort(); // Urutkan array (misal 1,3 agar rapi)
+      } else {
+        jawabanSiswa[id] = jawabanSiswa[id].filter(item => item !== nilai);
+      }
+    }
+
+    function updateBS(id, index, nilai) {
+      jawabanSiswa[id][index] = nilai;
     }
 
     function navigasi(arah) {
@@ -151,31 +244,72 @@
       tampilSoal();
     }
 
-    async function selesaiUjian() {
-      if (!confirm("Kirim jawaban sekarang?")) return;
-      document.getElementById('exam-page').innerHTML = "<h2 class='text-center mt-20 text-xl'>Menyimpan data... Jangan tutup!</h2>";
+
+    // --- FUNGSI SUBMIT KE SERVER ---
+    function selesaiUjian() {
+      if (confirm("Apakah Anda yakin ingin mengumpulkan jawaban sekarang? Pastikan semua soal telah terjawab.")) {
+        prosesSelesai();
+      }
+    }
+
+    async function prosesSelesai() {
+      // Ubah tampilan menjadi loading
+      document.getElementById('exam-page').innerHTML = `
+        <div class="flex flex-col items-center justify-center h-64 w-full">
+          <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
+          <h2 class='text-xl font-bold text-gray-700'>Sedang menyimpan data ke server...</h2>
+          <p class="text-gray-500 mt-2">Mohon jangan tutup halaman ini.</p>
+        </div>`;
       
+      // Merapikan format array menjadi string koma (misal ["1","3"] menjadi "1,3" atau ["B","S"] menjadi "B,S")
+      let jawabanFinal = {};
+      for (let id in jawabanSiswa) {
+        if (Array.isArray(jawabanSiswa[id])) {
+          jawabanFinal[id] = jawabanSiswa[id].filter(v => v !== null && v !== undefined).join(",");
+        } else {
+          jawabanFinal[id] = jawabanSiswa[id];
+        }
+      }
+
+      // Siapkan paket data yang akan dikirim ke Google Sheets
       const payload = {
         kelas: document.getElementById('kelas').value,
         nis: document.getElementById('nama').value,
-        nama: document.getElementById('nama-siswa-display').innerText,
-        jawaban: jawabanSiswa
+        nama: document.getElementById('nama-siswa-display').innerText.replace("Peserta: ", ""),
+        jawaban: jawabanFinal
       };
 
       try {
-        const response = await fetch(API_URL, {
+        // Mode 'no-cors' menyelesaikan masalah stuck/loading lama saat server Google merespon
+        await fetch(API_URL, {
           method: "POST",
-          redirect: "follow", // Wajib untuk bypass CORS di Google Apps Script
+          mode: "no-cors",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
         });
-        const resData = await response.json();
         
-        if(resData.status === "success") {
-          document.getElementById('exam-page').innerHTML = `<h2 class='text-center mt-20 text-2xl font-bold text-green-600'>Skor Anda: ${resData.skor}</h2>`;
+        // Tampilkan pesan sukses
+        document.getElementById('exam-page').innerHTML = `
+          <div class="text-center mt-20">
+            <svg class="mx-auto h-24 w-24 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <h2 class='text-3xl font-bold text-green-600 mb-2'>Ujian Selesai!</h2>
+            <p class="text-gray-600">Jawaban Anda berhasil disimpan ke dalam sistem.</p>
+            <p class="text-gray-600 mt-4">Silakan tutup halaman ini atau keluar dari browser.</p>
+          </div>`;
+          
+        // Keluar dari fullscreen
+        if(document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
         }
+        
       } catch (error) {
-        alert("Terjadi kesalahan jaringan, coba lagi.");
+        document.getElementById('exam-page').innerHTML = `
+          <div class="text-center mt-20">
+            <svg class="mx-auto h-24 w-24 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <h2 class='text-2xl font-bold text-red-600'>Koneksi Terputus</h2>
+            <p class="text-gray-600 mb-6">Jawaban gagal dikirim. Pastikan perangkat Anda terhubung ke internet.</p>
+            <button onclick="prosesSelesai()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded">Coba Kirim Ulang</button>
+          </div>`;
       }
     }
   </script>

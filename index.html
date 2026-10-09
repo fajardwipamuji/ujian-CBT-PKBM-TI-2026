@@ -273,13 +273,15 @@
     }
 
     async function prosesSelesai() {
+      // 1. Tampilkan Animasi Loading
       document.getElementById('exam-page').innerHTML = `
         <div class="flex flex-col items-center justify-center h-64 w-full">
           <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
           <h2 class='text-xl font-bold text-gray-700'>Sedang memeriksa jawaban & menyimpan data...</h2>
-          <p class="text-gray-500 mt-2">Mohon tunggu sebentar.</p>
+          <p class="text-gray-500 mt-2">Mohon tunggu sebentar, maksimal 10 detik.</p>
         </div>`;
       
+      // 2. Rapikan format jawaban
       let jawabanFinal = {};
       for (let id in jawabanSiswa) {
         if (Array.isArray(jawabanSiswa[id])) {
@@ -297,14 +299,21 @@
       };
 
       try {
+        // 3. FETCH DENGAN ATURAN ANTI-CORS GOOGLE
         const response = await fetch(API_URL, {
           method: "POST",
+          redirect: "follow", // WAJIB: Ikuti pengalihan (redirect) dari server Google
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8" // WAJIB: Gunakan text/plain untuk bypass preflight
+          },
           body: JSON.stringify(payload)
         });
         
-        const resData = await response.json();
+        // 4. Baca balasan sebagai teks terlebih dahulu (menghindari error jika Google mengembalikan HTML)
+        const textResponse = await response.text();
+        const resData = JSON.parse(textResponse);
         
-        if(resData.status === "success") {
+        if (resData.status === "success") {
           let nilai = parseFloat(resData.skor);
           let kategori = ""; let warna = "";
 
@@ -313,7 +322,7 @@
           else if (nilai >= 50.00) { kategori = "Memadai"; warna = "text-yellow-600"; } 
           else { kategori = "⚠️ Kurang"; warna = "text-red-600"; }
 
-          if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 
           document.getElementById('exam-page').innerHTML = `
             <div class="text-center mt-10 w-full">
@@ -327,12 +336,15 @@
               </div>
               <p class="text-gray-600 mt-8 font-medium">Data nilai Anda telah terekam di sistem sekolah.</p>
             </div>`;
+        } else {
+          throw new Error("Gagal membaca status success dari server.");
         }
       } catch (error) {
+        console.error("Error Detail:", error); // Menampilkan pesan asli di console untuk kemudahan perbaikan
         document.getElementById('exam-page').innerHTML = `
           <div class="text-center mt-20">
-            <h2 class='text-2xl font-bold text-red-600 mb-4'>Koneksi Terputus</h2>
-            <p class="text-gray-600 mb-6">Gagal terhubung ke server.</p>
+            <h2 class='text-2xl font-bold text-red-600 mb-4'>Koneksi Terputus / Gangguan Server</h2>
+            <p class="text-gray-600 mb-6">Gagal terhubung ke database. Jawaban Anda mungkin belum tersimpan.</p>
             <button onclick="prosesSelesai()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded shadow">Coba Kirim Ulang</button>
           </div>`;
       }

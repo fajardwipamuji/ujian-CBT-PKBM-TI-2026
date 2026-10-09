@@ -26,9 +26,8 @@
       <option value="">-- Pilih Kelas Dahulu --</option>
     </select>
 
-    <button id="btn-mulai" class="w-full bg-blue-600 text-white p-2 rounded disabled:bg-gray-400 font-bold" onclick="mulaiUjian()" disabled>MULAI UJIAN</button>
+    <button id="btn-mulai" class="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded disabled:bg-gray-400 font-bold" onclick="mulaiUjian()" disabled>MULAI UJIAN</button>
   </div>
-
 
   <!-- ================= HALAMAN UJIAN ================= -->
   <div id="exam-page" class="hidden max-w-6xl mx-auto flex flex-col md:flex-row gap-4 mt-4">
@@ -51,8 +50,7 @@
     </div>
   </div>
 
-
-  <!-- ================= JAVASCRIPT LOGIKA ================= -->
+  <!-- ================= JAVASCRIPT ================= -->
   <script>
     // ⚠️ MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI BAWAH INI ⚠️
     const API_URL = "https://script.google.com/macros/s/AKfycbzVAeAo4HSxOYpYZYQFOgRbj0M-gxMeV6mMmA-DA6YrEGgzFoO6a5ezVfhYJVxvpraVqQ/exec"; 
@@ -77,7 +75,7 @@
       }
     });
 
-    // --- AMBIL DATA ---
+    // --- AMBIL DATA DARI SERVER ---
     async function loadData() {
       try {
         const response = await fetch(API_URL + "?action=getData");
@@ -123,8 +121,7 @@
       tampilSoal();
     }
 
-
-    // --- TAMPILKAN SOAL BERDASARKAN JENISNYA ---
+    // --- RENDER SOAL ---
     function tampilSoal() {
       let soal = dbSoal[indexSoal];
       
@@ -133,7 +130,6 @@
 
       let htmlSoal = `<p class="font-bold text-lg mb-4 text-justify">${indexSoal + 1}. ${soal.pertanyaan}</p>`;
       
-      // 1. Pilihan Ganda Biasa
       if (soal.jenis === 'PG_Biasa') {
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
@@ -147,11 +143,9 @@
           }
         });
       } 
-      // 2. Pilihan Ganda Kompleks
       else if (soal.jenis === 'PG_Kompleks') {
         if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
         htmlSoal += `<p class="text-sm text-blue-600 mb-2 italic">*Pilih semua jawaban yang benar</p>`;
-        
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
             let val = (idx + 1).toString();
@@ -164,10 +158,8 @@
           }
         });
       }
-      // 3. Benar / Salah
       else if (soal.jenis === 'Benar_Salah') {
         if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
-        
         let tabel = `
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse border border-gray-300 mt-2">
@@ -176,7 +168,6 @@
               <th class="border border-gray-300 p-3 text-center w-20">Benar</th>
               <th class="border border-gray-300 p-3 text-center w-20">Salah</th>
             </tr>`;
-            
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
              let valB = jawabanSiswa[soal.id_soal][idx] === 'B' ? 'checked' : '';
@@ -192,10 +183,8 @@
         tabel += `</table></div>`;
         htmlSoal += tabel;
       }
-      // 4. FITUR BARU: Menjodohkan
       else if (soal.jenis === 'Menjodohkan') {
         if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
-        
         let tabel = `
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse border border-gray-300 mt-2">
@@ -203,7 +192,6 @@
               <th class="border border-gray-300 p-3">Pernyataan / Tindakan</th>
               <th class="border border-gray-300 p-3 text-center w-32">Pasangan</th>
             </tr>`;
-            
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
              let jwb = jawabanSiswa[soal.id_soal][idx] || "";
@@ -243,7 +231,6 @@
       }
     }
 
-    // --- FUNGSI PEMBANTU INPUT ---
     function updateKompleks(id, nilai, isChecked) {
       if (isChecked) {
         jawabanSiswa[id].push(nilai);
@@ -253,7 +240,6 @@
       }
     }
 
-    // Fungsi ini dipakai bersama untuk soal B/S dan Menjodohkan
     function updateArray(id, index, nilai) {
       jawabanSiswa[id][index] = nilai;
     }
@@ -264,8 +250,7 @@
       tampilSoal();
     }
 
-
-    // --- SUBMIT JAWABAN ---
+    // --- PROSES SUBMIT ---
     function selesaiUjian() {
       if (confirm("Apakah Anda yakin ingin mengumpulkan jawaban?")) {
         prosesSelesai();
@@ -273,15 +258,7 @@
     }
 
     async function prosesSelesai() {
-      console.log("1. Memulai proses penyimpanan data...");
-      
-      document.getElementById('exam-page').innerHTML = `
-        <div class="flex flex-col items-center justify-center h-64 w-full">
-          <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
-          <h2 class='text-xl font-bold text-gray-700'>Sedang memeriksa jawaban & menyimpan data...</h2>
-          <p class="text-gray-500 mt-2">Mohon tunggu maksimal 10 detik.</p>
-        </div>`;
-      
+      // 1. KUMPULKAN DATA DULU (JANGAN UBAH LAYAR SEBELUM DATA AMAN)
       let jawabanFinal = {};
       for (let id in jawabanSiswa) {
         if (Array.isArray(jawabanSiswa[id])) {
@@ -291,16 +268,26 @@
         }
       }
 
+      // Ambil nama langsung dari opsi dropdown yang dipilih (Bebas Error 100%)
+      let selNama = document.getElementById('nama');
+      let namaPeserta = selNama.options[selNama.selectedIndex].text;
+
       const payload = {
         kelas: document.getElementById('kelas').value,
         nis: document.getElementById('nama').value,
-        nama: document.getElementById('nama-siswa-display').innerText.replace("Peserta: ", ""),
+        nama: namaPeserta,
         jawaban: jawabanFinal
       };
 
-      console.log("2. Data jawaban berhasil dirangkum:", payload);
-      console.log("3. Mengetuk pintu server Google di URL:", API_URL);
+      // 2. SETELAH DATA AMAN, BARU UBAH TAMPILAN JADI LOADING
+      document.getElementById('exam-page').innerHTML = `
+        <div class="flex flex-col items-center justify-center h-64 w-full">
+          <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
+          <h2 class='text-xl font-bold text-gray-700'>Sedang memeriksa jawaban & menyimpan data...</h2>
+          <p class="text-gray-500 mt-2">Mohon tunggu sebentar...</p>
+        </div>`;
 
+      // 3. KIRIM KE GOOGLE SCRIPT
       try {
         const response = await fetch(API_URL, {
           method: "POST",
@@ -311,15 +298,10 @@
           body: JSON.stringify(payload)
         });
         
-        console.log("4. Server Google membalas! Status HTTP:", response.status);
-        
         const textResponse = await response.text();
-        console.log("5. Isi balasan mentah dari Google:", textResponse);
-        
         const resData = JSON.parse(textResponse);
         
-        if(resData.status === "success") {
-          console.log("6. SUKSES! Mengeluarkan nilai ke layar.");
+        if (resData.status === "success") {
           let nilai = parseFloat(resData.skor);
           let kategori = ""; let warna = "";
 
@@ -328,7 +310,7 @@
           else if (nilai >= 50.00) { kategori = "Memadai"; warna = "text-yellow-600"; } 
           else { kategori = "⚠️ Kurang"; warna = "text-red-600"; }
 
-          if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+          if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 
           document.getElementById('exam-page').innerHTML = `
             <div class="text-center mt-10 w-full">
@@ -343,15 +325,14 @@
               <p class="text-gray-600 mt-8 font-medium">Data nilai Anda telah terekam di sistem sekolah.</p>
             </div>`;
         } else {
-          throw new Error("Server membalas error: " + resData.message);
+          throw new Error("Server error");
         }
       } catch (error) {
-        console.error("GAGAL TOTAL:", error);
         document.getElementById('exam-page').innerHTML = `
           <div class="text-center mt-20">
-            <h2 class='text-2xl font-bold text-red-600 mb-4'>Koneksi Terputus / Gangguan Server</h2>
+            <h2 class='text-2xl font-bold text-red-600 mb-4'>Koneksi Terputus</h2>
             <p class="text-gray-600 mb-6">Gagal terhubung ke database. Silakan lapor ke pengawas.</p>
-            <button onclick="prosesSelesai()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded shadow">Coba Kirim Ulang</button>
+            <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded shadow">Muat Ulang Halaman</button>
           </div>`;
       }
     }

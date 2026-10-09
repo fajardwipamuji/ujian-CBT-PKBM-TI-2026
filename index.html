@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureTest - Ujian CBT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { user-select: none; }
+    #wacana-container { overflow-y: auto; max-height: 80vh; }
+  </style>
+</head>
+<body class="bg-gray-100 font-sans p-4">
+
+  <div id="login-page" class="max-w-md mx-auto bg-white p-6 rounded-lg shadow-md mt-10">
+    <h2 class="text-2xl font-bold mb-4 text-center">Login Ujian</h2>
+    
+    <label class="block mb-2 text-sm font-medium">Pilih Kelas</label>
+    <select id="kelas" class="w-full border p-2 mb-4 rounded" onchange="updateNama()">
+      <option value="">-- Loading Data... --</option>
+    </select>
+
+    <label class="block mb-2 text-sm font-medium">Pilih Nama</label>
+    <select id="nama" class="w-full border p-2 mb-6 rounded" disabled>
+      <option value="">-- Pilih Kelas Dahulu --</option>
+    </select>
+
+    <button id="btn-mulai" class="w-full bg-blue-600 text-white p-2 rounded disabled:bg-gray-400" onclick="mulaiUjian()" disabled>Mulai Ujian</button>
+  </div>
+
+  <div id="exam-page" class="hidden max-w-6xl mx-auto flex flex-col md:flex-row gap-4 mt-4">
+    <div class="md:w-1/2 bg-white p-6 rounded-lg shadow-md" id="wacana-container">
+      <h3 class="font-bold text-lg mb-2 text-gray-700">Teks Referensi</h3>
+      <div id="wacana-teks" class="text-gray-600 leading-relaxed text-sm">Loading...</div>
+    </div>
+
+    <div class="md:w-1/2 bg-white p-6 rounded-lg shadow-md relative">
+      <div class="flex justify-between mb-4 border-b pb-2">
+        <span class="font-bold" id="nama-siswa-display"></span>
+      </div>
+      <div id="soal-container" class="mb-6"></div>
+      <div class="flex justify-between">
+        <button class="bg-gray-300 p-2 rounded w-24" onclick="navigasi(-1)">KEMBALI</button>
+        <button id="btn-selanjutnya" class="bg-blue-600 text-white p-2 rounded w-32" onclick="navigasi(1)">SELANJUTNYA</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // MASUKKAN URL GOOGLE SCRIPT ANDA DI SINI
+    const API_URL = "https://script.google.com/macros/s/AKfycbzMCIrWKekZ3pxz7EpbWrteGuP1mcUAfQI70HvTnC-8jYBNlX8Q8rx0U3qnFntwq16kcA/exec"; 
+
+    let dbSiswa, dbWacana, dbSoal;
+    let indexSoal = 0;
+    let jawabanSiswa = {};
+    let warningCount = 0;
+
+    // --- ANTI CHEAT ---
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('copy', e => { e.preventDefault(); alert('Dilarang menyalin!'); });
+    
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden" && !document.getElementById('exam-page').classList.contains('hidden')) {
+        warningCount++;
+        alert(`PERINGATAN! Anda keluar tab. (Peringatan ${warningCount}/3)`);
+        if (warningCount >= 3) { alert("Ujian dihentikan!"); selesaiUjian(); }
+      }
+    });
+
+    // --- FETCH DATA DARI API GOOGLE ---
+    async function loadData() {
+      try {
+        const response = await fetch(API_URL + "?action=getData");
+        const data = await response.json();
+        dbSiswa = data.siswa;
+        dbWacana = data.wacana;
+        dbSoal = data.soal;
+
+        const selectKelas = document.getElementById('kelas');
+        selectKelas.innerHTML = '<option value="">-- Pilih Kelas --</option>';
+        Object.keys(dbSiswa).forEach(k => selectKelas.add(new Option(k, k)));
+      } catch (error) {
+        alert("Gagal memuat data ujian. Pastikan URL API benar.");
+      }
+    }
+    
+    // Jalankan saat web dibuka
+    loadData();
+
+    function updateNama() {
+      const kelas = document.getElementById('kelas').value;
+      const selectNama = document.getElementById('nama');
+      selectNama.innerHTML = '<option value="">-- Pilih Nama --</option>';
+      if (kelas) {
+        selectNama.disabled = false;
+        dbSiswa[kelas].forEach(s => selectNama.add(new Option(s.nama, s.nis)));
+      } else {
+        selectNama.disabled = true;
+        document.getElementById('btn-mulai').disabled = true;
+      }
+    }
+
+    document.getElementById('nama').addEventListener('change', function() {
+      document.getElementById('btn-mulai').disabled = this.value === "";
+    });
+
+    function mulaiUjian() {
+      document.getElementById('login-page').classList.add('hidden');
+      document.getElementById('exam-page').classList.remove('hidden');
+      let sel = document.getElementById('nama');
+      document.getElementById('nama-siswa-display').innerText = sel.options[sel.selectedIndex].text;
+      
+      document.documentElement.requestFullscreen().catch(() => {});
+      tampilSoal();
+    }
+
+    function tampilSoal() {
+      let soal = dbSoal[indexSoal];
+      let teksWacana = dbWacana[soal.id_wacana];
+      document.getElementById('wacana-teks').innerHTML = teksWacana ? teksWacana.replace(/\n/g, "<br>") : "Tidak ada referensi.";
+
+      let htmlSoal = `<p class="font-bold mb-4">${indexSoal + 1}. ${soal.pertanyaan}</p>`;
+      if (soal.jenis === 'PG_Biasa') {
+        soal.opsi.forEach((opsiTeks, idx) => {
+          if(opsiTeks) {
+            let val = (idx + 1).toString();
+            let checked = jawabanSiswa[soal.id_soal] === val ? "checked" : "";
+            htmlSoal += `<label class="block p-3 border rounded mb-2 hover:bg-blue-50 cursor-pointer">
+              <input type="radio" name="soal_pg" value="${val}" ${checked} onchange="jawabanSiswa['${soal.id_soal}'] = this.value"> ${opsiTeks}
+            </label>`;
+          }
+        });
+      }
+      document.getElementById('soal-container').innerHTML = htmlSoal;
+
+      let btnNext = document.getElementById('btn-selanjutnya');
+      if (indexSoal === dbSoal.length - 1) {
+        btnNext.innerText = "SELESAI";
+        btnNext.classList.replace('bg-blue-600', 'bg-red-600');
+        btnNext.onclick = selesaiUjian;
+      } else {
+        btnNext.innerText = "SELANJUTNYA";
+        btnNext.classList.replace('bg-red-600', 'bg-blue-600');
+        btnNext.onclick = () => navigasi(1);
+      }
+    }
+
+    function navigasi(arah) {
+      indexSoal += arah;
+      if (indexSoal < 0) indexSoal = 0;
+      tampilSoal();
+    }
+
+    async function selesaiUjian() {
+      if (!confirm("Kirim jawaban sekarang?")) return;
+      document.getElementById('exam-page').innerHTML = "<h2 class='text-center mt-20 text-xl'>Menyimpan data... Jangan tutup!</h2>";
+      
+      const payload = {
+        kelas: document.getElementById('kelas').value,
+        nis: document.getElementById('nama').value,
+        nama: document.getElementById('nama-siswa-display').innerText,
+        jawaban: jawabanSiswa
+      };
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          redirect: "follow", // Wajib untuk bypass CORS di Google Apps Script
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify(payload)
+        });
+        const resData = await response.json();
+        
+        if(resData.status === "success") {
+          document.getElementById('exam-page').innerHTML = `<h2 class='text-center mt-20 text-2xl font-bold text-green-600'>Skor Anda: ${resData.skor}</h2>`;
+        }
+      } catch (error) {
+        alert("Terjadi kesalahan jaringan, coba lagi.");
+      }
+    }
+  </script>
+</body>
+</html>

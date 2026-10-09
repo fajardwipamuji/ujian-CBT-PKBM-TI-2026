@@ -6,9 +6,7 @@
   <title>SecureTest - Ujian CBT</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Mencegah teks bisa diblok atau disorot */
     body { user-select: none; -webkit-user-select: none; -ms-user-select: none; }
-    /* Membuat kolom wacana bisa di-scroll secara independen */
     #wacana-container { overflow-y: auto; max-height: 80vh; }
   </style>
 </head>
@@ -34,16 +32,11 @@
 
   <!-- ================= HALAMAN UJIAN ================= -->
   <div id="exam-page" class="hidden max-w-6xl mx-auto flex flex-col md:flex-row gap-4 mt-4">
-    
-    <!-- Bagian Kiri: Teks Wacana / Stimulus -->
     <div class="md:w-1/2 bg-white p-6 rounded-lg shadow-md" id="wacana-container">
       <h3 class="font-bold text-lg mb-4 text-gray-700 border-b pb-2">Teks Referensi</h3>
-      <div id="wacana-teks" class="text-gray-700 leading-relaxed text-sm md:text-base text-justify">
-        Loading...
-      </div>
+      <div id="wacana-teks" class="text-gray-700 leading-relaxed text-sm md:text-base text-justify">Loading...</div>
     </div>
 
-    <!-- Bagian Kanan: Pertanyaan & Pilihan Jawaban -->
     <div class="md:w-1/2 bg-white p-6 rounded-lg shadow-md relative">
       <div class="flex justify-between mb-4 border-b pb-2">
         <span class="font-bold text-blue-700" id="nama-siswa-display"></span>
@@ -59,21 +52,20 @@
   </div>
 
 
-  <!-- ================= JAVASCRIPT LOGIKA APLIKASI ================= -->
+  <!-- ================= JAVASCRIPT LOGIKA ================= -->
   <script>
     // ⚠️ MASUKKAN URL GOOGLE APPS SCRIPT ANDA DI BAWAH INI ⚠️
-    const API_URL = "https://script.google.com/macros/s/AKfycbzMCIrWKekZ3pxz7EpbWrteGuP1mcUAfQI70HvTnC-8jYBNlX8Q8rx0U3qnFntwq16kcA/exec"; 
+    const API_URL = "https://script.google.com/macros/s/AKfycbzG-K_fbT7BqdGa124e9H5xbsDKXl0sjTYxWCvRIv4fwYtZ3PDEVlcDE4uhwEPwys8TXg/exec"; 
 
     let dbSiswa, dbWacana, dbSoal;
     let indexSoal = 0;
     let jawabanSiswa = {}; 
     let warningCount = 0;
 
-    // --- SISTEM KEAMANAN (ANTI CHEAT) ---
-    document.addEventListener('contextmenu', e => e.preventDefault()); // Blokir klik kanan
-    document.addEventListener('copy', e => { e.preventDefault(); alert('Tindakan menyalin dilarang!'); }); // Blokir copy
+    // --- ANTI CHEAT ---
+    document.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('copy', e => { e.preventDefault(); alert('Tindakan menyalin dilarang!'); });
     
-    // Deteksi jika siswa membuka tab lain (Google, ChatGPT, dll)
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden" && !document.getElementById('exam-page').classList.contains('hidden')) {
         warningCount++;
@@ -85,8 +77,7 @@
       }
     });
 
-
-    // --- FUNGSI MENGAMBIL DATA DARI DATABASE (GOOGLE SHEETS) ---
+    // --- AMBIL DATA ---
     async function loadData() {
       try {
         const response = await fetch(API_URL + "?action=getData");
@@ -99,14 +90,12 @@
         selectKelas.innerHTML = '<option value="">-- Pilih Kelas --</option>';
         Object.keys(dbSiswa).forEach(k => selectKelas.add(new Option(k, k)));
       } catch (error) {
-        alert("Gagal memuat data ujian. Pastikan URL API benar dan internet stabil.");
+        alert("Gagal memuat data. Pastikan URL API benar dan internet stabil.");
       }
     }
     
-    loadData(); // Jalankan saat web pertama kali dibuka
+    loadData();
 
-
-    // --- FUNGSI LOGIN & DROPDOWN BERINGKAT ---
     function updateNama() {
       const kelas = document.getElementById('kelas').value;
       const selectNama = document.getElementById('nama');
@@ -130,24 +119,21 @@
       let sel = document.getElementById('nama');
       document.getElementById('nama-siswa-display').innerText = "Peserta: " + sel.options[sel.selectedIndex].text;
       
-      // Paksa layar penuh (Fullscreen) jika browser mengizinkan
       document.documentElement.requestFullscreen().catch(() => {});
       tampilSoal();
     }
 
 
-    // --- FUNGSI MENAMPILKAN SOAL & LOGIKA JENIS SOAL ---
+    // --- TAMPILKAN SOAL BERDASARKAN JENISNYA ---
     function tampilSoal() {
       let soal = dbSoal[indexSoal];
       
-      // Render Wacana
       let teksWacana = dbWacana[soal.id_wacana];
-      document.getElementById('wacana-teks').innerHTML = teksWacana ? teksWacana.replace(/\n/g, "<br><br>") : "<span class='text-gray-400 italic'>Tidak ada teks referensi tambahan untuk soal ini.</span>";
+      document.getElementById('wacana-teks').innerHTML = teksWacana ? teksWacana.replace(/\n/g, "<br><br>") : "<span class='text-gray-400 italic'>Tidak ada teks referensi tambahan.</span>";
 
-      // Render Pertanyaan
       let htmlSoal = `<p class="font-bold text-lg mb-4 text-justify">${indexSoal + 1}. ${soal.pertanyaan}</p>`;
       
-      // 1. Logika Tampilan Pilihan Ganda Biasa
+      // 1. Pilihan Ganda Biasa
       if (soal.jenis === 'PG_Biasa') {
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
@@ -161,10 +147,10 @@
           }
         });
       } 
-      // 2. Logika Tampilan Pilihan Ganda Kompleks (Banyak Jawaban)
+      // 2. Pilihan Ganda Kompleks
       else if (soal.jenis === 'PG_Kompleks') {
         if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
-        htmlSoal += `<p class="text-sm text-blue-600 mb-2 italic">*Pilih semua jawaban yang benar (bisa lebih dari satu)</p>`;
+        htmlSoal += `<p class="text-sm text-blue-600 mb-2 italic">*Pilih semua jawaban yang benar</p>`;
         
         soal.opsi.forEach((opsiTeks, idx) => {
           if(opsiTeks) {
@@ -178,7 +164,7 @@
           }
         });
       }
-      // 3. Logika Tampilan Benar / Salah (Tabel)
+      // 3. Benar / Salah
       else if (soal.jenis === 'Benar_Salah') {
         if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
         
@@ -198,8 +184,42 @@
              tabel += `
              <tr class="hover:bg-gray-50">
                <td class="border border-gray-300 p-3 text-sm">${opsiTeks}</td>
-               <td class="border border-gray-300 p-3 text-center bg-green-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="B" ${valB} onchange="updateBS('${soal.id_soal}', ${idx}, 'B')" class="w-4 h-4 cursor-pointer"></td>
-               <td class="border border-gray-300 p-3 text-center bg-red-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="S" ${valS} onchange="updateBS('${soal.id_soal}', ${idx}, 'S')" class="w-4 h-4 cursor-pointer"></td>
+               <td class="border border-gray-300 p-3 text-center bg-green-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="B" ${valB} onchange="updateArray('${soal.id_soal}', ${idx}, 'B')" class="w-4 h-4 cursor-pointer"></td>
+               <td class="border border-gray-300 p-3 text-center bg-red-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="S" ${valS} onchange="updateArray('${soal.id_soal}', ${idx}, 'S')" class="w-4 h-4 cursor-pointer"></td>
+             </tr>`;
+          }
+        });
+        tabel += `</table></div>`;
+        htmlSoal += tabel;
+      }
+      // 4. FITUR BARU: Menjodohkan
+      else if (soal.jenis === 'Menjodohkan') {
+        if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
+        
+        let tabel = `
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse border border-gray-300 mt-2">
+            <tr class="bg-gray-100">
+              <th class="border border-gray-300 p-3">Pernyataan / Tindakan</th>
+              <th class="border border-gray-300 p-3 text-center w-32">Pasangan</th>
+            </tr>`;
+            
+        soal.opsi.forEach((opsiTeks, idx) => {
+          if(opsiTeks) {
+             let jwb = jawabanSiswa[soal.id_soal][idx] || "";
+             tabel += `
+             <tr class="hover:bg-gray-50">
+               <td class="border border-gray-300 p-3 text-sm">${opsiTeks}</td>
+               <td class="border border-gray-300 p-2 text-center bg-blue-50">
+                 <select class="w-full border border-gray-400 p-1 rounded font-bold text-center cursor-pointer" onchange="updateArray('${soal.id_soal}', ${idx}, this.value)">
+                   <option value="">- Pilih -</option>
+                   <option value="A" ${jwb === 'A' ? 'selected' : ''}>A</option>
+                   <option value="B" ${jwb === 'B' ? 'selected' : ''}>B</option>
+                   <option value="C" ${jwb === 'C' ? 'selected' : ''}>C</option>
+                   <option value="D" ${jwb === 'D' ? 'selected' : ''}>D</option>
+                   <option value="E" ${jwb === 'E' ? 'selected' : ''}>E</option>
+                 </select>
+               </td>
              </tr>`;
           }
         });
@@ -209,7 +229,6 @@
 
       document.getElementById('soal-container').innerHTML = htmlSoal;
 
-      // Update Tombol Navigasi
       let btnNext = document.getElementById('btn-selanjutnya');
       if (indexSoal === dbSoal.length - 1) {
         btnNext.innerText = "SELESAI & KIRIM";
@@ -224,17 +243,18 @@
       }
     }
 
-    // Fungsi Pembantu Input Soal
+    // --- FUNGSI PEMBANTU INPUT ---
     function updateKompleks(id, nilai, isChecked) {
       if (isChecked) {
         jawabanSiswa[id].push(nilai);
-        jawabanSiswa[id].sort(); // Urutkan array (misal 1,3 agar rapi)
+        jawabanSiswa[id].sort();
       } else {
         jawabanSiswa[id] = jawabanSiswa[id].filter(item => item !== nilai);
       }
     }
 
-    function updateBS(id, index, nilai) {
+    // Fungsi ini dipakai bersama untuk soal B/S dan Menjodohkan
+    function updateArray(id, index, nilai) {
       jawabanSiswa[id][index] = nilai;
     }
 
@@ -245,33 +265,30 @@
     }
 
 
-    // --- FUNGSI SUBMIT KE SERVER ---
+    // --- SUBMIT JAWABAN ---
     function selesaiUjian() {
-      if (confirm("Apakah Anda yakin ingin mengumpulkan jawaban sekarang? Pastikan semua soal telah terjawab.")) {
+      if (confirm("Apakah Anda yakin ingin mengumpulkan jawaban?")) {
         prosesSelesai();
       }
     }
 
     async function prosesSelesai() {
-      // Ubah tampilan menjadi loading
       document.getElementById('exam-page').innerHTML = `
         <div class="flex flex-col items-center justify-center h-64 w-full">
           <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 mb-4"></div>
-          <h2 class='text-xl font-bold text-gray-700'>Sedang menyimpan data ke server...</h2>
-          <p class="text-gray-500 mt-2">Mohon jangan tutup halaman ini.</p>
+          <h2 class='text-xl font-bold text-gray-700'>Sedang memeriksa jawaban & menyimpan data...</h2>
+          <p class="text-gray-500 mt-2">Mohon tunggu sebentar.</p>
         </div>`;
       
-      // Merapikan format array menjadi string koma (misal ["1","3"] menjadi "1,3" atau ["B","S"] menjadi "B,S")
       let jawabanFinal = {};
       for (let id in jawabanSiswa) {
         if (Array.isArray(jawabanSiswa[id])) {
-          jawabanFinal[id] = jawabanSiswa[id].filter(v => v !== null && v !== undefined).join(",");
+          jawabanFinal[id] = jawabanSiswa[id].map(v => v ? v : "").join(",");
         } else {
           jawabanFinal[id] = jawabanSiswa[id];
         }
       }
 
-      // Siapkan paket data yang akan dikirim ke Google Sheets
       const payload = {
         kelas: document.getElementById('kelas').value,
         nis: document.getElementById('nama').value,
@@ -280,35 +297,43 @@
       };
 
       try {
-        // Mode 'no-cors' menyelesaikan masalah stuck/loading lama saat server Google merespon
-        await fetch(API_URL, {
+        const response = await fetch(API_URL, {
           method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify(payload)
         });
         
-        // Tampilkan pesan sukses
-        document.getElementById('exam-page').innerHTML = `
-          <div class="text-center mt-20">
-            <svg class="mx-auto h-24 w-24 text-green-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <h2 class='text-3xl font-bold text-green-600 mb-2'>Ujian Selesai!</h2>
-            <p class="text-gray-600">Jawaban Anda berhasil disimpan ke dalam sistem.</p>
-            <p class="text-gray-600 mt-4">Silakan tutup halaman ini atau keluar dari browser.</p>
-          </div>`;
-          
-        // Keluar dari fullscreen
-        if(document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
-        }
+        const resData = await response.json();
         
+        if(resData.status === "success") {
+          let nilai = parseFloat(resData.skor);
+          let kategori = ""; let warna = "";
+
+          if (nilai >= 95.00) { kategori = "🌟 Istimewa"; warna = "text-green-600"; } 
+          else if (nilai >= 76.67) { kategori = "Baik"; warna = "text-blue-500"; } 
+          else if (nilai >= 50.00) { kategori = "Memadai"; warna = "text-yellow-600"; } 
+          else { kategori = "⚠️ Kurang"; warna = "text-red-600"; }
+
+          if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+
+          document.getElementById('exam-page').innerHTML = `
+            <div class="text-center mt-10 w-full">
+              <h2 class='text-3xl font-bold text-gray-800 mb-2'>Ujian Selesai!</h2>
+              <div class="mt-8 p-8 bg-white border border-gray-200 rounded-2xl shadow-xl inline-block min-w-[320px]">
+                <p class="text-gray-500 font-bold uppercase mb-2">Nilai Akhir Anda</p>
+                <p class="text-7xl font-black ${warna}">${nilai}</p>
+                <div class="mt-6 inline-block px-6 py-2 bg-gray-100 rounded-full border border-gray-200">
+                  <p class="text-xl font-bold ${warna}">${kategori}</p>
+                </div>
+              </div>
+              <p class="text-gray-600 mt-8 font-medium">Data nilai Anda telah terekam di sistem sekolah.</p>
+            </div>`;
+        }
       } catch (error) {
         document.getElementById('exam-page').innerHTML = `
           <div class="text-center mt-20">
-            <svg class="mx-auto h-24 w-24 text-red-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            <h2 class='text-2xl font-bold text-red-600'>Koneksi Terputus</h2>
-            <p class="text-gray-600 mb-6">Jawaban gagal dikirim. Pastikan perangkat Anda terhubung ke internet.</p>
-            <button onclick="prosesSelesai()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded">Coba Kirim Ulang</button>
+            <h2 class='text-2xl font-bold text-red-600 mb-4'>Koneksi Terputus</h2>
+            <p class="text-gray-600 mb-6">Gagal terhubung ke server.</p>
+            <button onclick="prosesSelesai()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded shadow">Coba Kirim Ulang</button>
           </div>`;
       }
     }

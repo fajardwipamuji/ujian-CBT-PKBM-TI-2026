@@ -132,28 +132,30 @@
       
       if (soal.jenis === 'PG_Biasa') {
         soal.opsi.forEach((opsiTeks, idx) => {
-          if(opsiTeks) {
+          let teks = opsiTeks ? opsiTeks.toString().trim() : "";
+          if (teks !== "" && teks !== "-") {
             let val = (idx + 1).toString();
             let checked = jawabanSiswa[soal.id_soal] === val ? "checked" : "";
             htmlSoal += `
             <label class="block p-3 border border-gray-300 rounded-lg mb-2 hover:bg-blue-50 cursor-pointer transition">
               <input type="radio" name="soal_pg" value="${val}" ${checked} onchange="jawabanSiswa['${soal.id_soal}'] = this.value" class="mr-2"> 
-              ${opsiTeks}
+              ${teks}
             </label>`;
           }
         });
       } 
       else if (soal.jenis === 'PG_Kompleks') {
         if (!jawabanSiswa[soal.id_soal]) jawabanSiswa[soal.id_soal] = []; 
-        htmlSoal += `<p class="text-sm text-blue-600 mb-2 italic">*Pilih semua jawaban yang benar</p>`;
+        htmlSoal += `<p class="text-sm text-blue-600 mb-2 italic">*Jawaban benar lebih dari satu</p>`;
         soal.opsi.forEach((opsiTeks, idx) => {
-          if(opsiTeks) {
+          let teks = opsiTeks ? opsiTeks.toString().trim() : "";
+          if (teks !== "" && teks !== "-") {
             let val = (idx + 1).toString();
             let checked = jawabanSiswa[soal.id_soal].includes(val) ? "checked" : "";
             htmlSoal += `
             <label class="block p-3 border border-gray-300 rounded-lg mb-2 hover:bg-blue-50 cursor-pointer transition">
               <input type="checkbox" value="${val}" ${checked} onchange="updateKompleks('${soal.id_soal}', this.value, this.checked)" class="mr-2"> 
-              ${opsiTeks}
+              ${teks}
             </label>`;
           }
         });
@@ -169,12 +171,13 @@
               <th class="border border-gray-300 p-3 text-center w-20">Salah</th>
             </tr>`;
         soal.opsi.forEach((opsiTeks, idx) => {
-          if(opsiTeks) {
+          let teks = opsiTeks ? opsiTeks.toString().trim() : "";
+          if (teks !== "" && teks !== "-") {
              let valB = jawabanSiswa[soal.id_soal][idx] === 'B' ? 'checked' : '';
              let valS = jawabanSiswa[soal.id_soal][idx] === 'S' ? 'checked' : '';
              tabel += `
              <tr class="hover:bg-gray-50">
-               <td class="border border-gray-300 p-3 text-sm">${opsiTeks}</td>
+               <td class="border border-gray-300 p-3 text-sm">${teks}</td>
                <td class="border border-gray-300 p-3 text-center bg-green-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="B" ${valB} onchange="updateArray('${soal.id_soal}', ${idx}, 'B')" class="w-4 h-4 cursor-pointer"></td>
                <td class="border border-gray-300 p-3 text-center bg-red-50"><input type="radio" name="bs_${soal.id_soal}_${idx}" value="S" ${valS} onchange="updateArray('${soal.id_soal}', ${idx}, 'S')" class="w-4 h-4 cursor-pointer"></td>
              </tr>`;
@@ -193,11 +196,12 @@
               <th class="border border-gray-300 p-3 text-center w-32">Pasangan</th>
             </tr>`;
         soal.opsi.forEach((opsiTeks, idx) => {
-          if(opsiTeks) {
+          let teks = opsiTeks ? opsiTeks.toString().trim() : "";
+          if (teks !== "" && teks !== "-") {
              let jwb = jawabanSiswa[soal.id_soal][idx] || "";
              tabel += `
              <tr class="hover:bg-gray-50">
-               <td class="border border-gray-300 p-3 text-sm">${opsiTeks}</td>
+               <td class="border border-gray-300 p-3 text-sm">${teks}</td>
                <td class="border border-gray-300 p-2 text-center bg-blue-50">
                  <select class="w-full border border-gray-400 p-1 rounded font-bold text-center cursor-pointer" onchange="updateArray('${soal.id_soal}', ${idx}, this.value)">
                    <option value="">- Pilih -</option>

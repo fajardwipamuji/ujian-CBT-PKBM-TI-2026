@@ -8,6 +8,9 @@
   <style>
     body { user-select: none; -webkit-user-select: none; -ms-user-select: none; }
     #wacana-container { overflow-y: auto; max-height: 80vh; }
+    /* Mematikan klik, drag, dan tautan pada gambar wacana/soal */
+    #exam-page img { pointer-events: none; -webkit-user-drag: none; }
+    #exam-page a { pointer-events: none; text-decoration: none; cursor: default; }
   </style>
 </head>
 <body class="bg-gray-100 font-sans p-4">
@@ -59,19 +62,38 @@
     let indexSoal = 0;
     let jawabanSiswa = {}; 
     let warningCount = 0;
+    let isSubmitting = false; // Mencegah bentrok saat auto-submit
 
-    // --- ANTI CHEAT ---
+    // --- ANTI CHEAT SUPER KETAT ---
     document.addEventListener('contextmenu', e => e.preventDefault());
     document.addEventListener('copy', e => { e.preventDefault(); alert('Tindakan menyalin dilarang!'); });
     
+    function prosesPelanggaran(jenisPelanggaran) {
+      // Abaikan jika belum mulai ujian atau sedang proses kirim
+      if (document.getElementById('exam-page').classList.contains('hidden') || isSubmitting) return;
+      
+      warningCount++;
+      if (warningCount === 1) {
+        alert(`PERINGATAN 1/2!\nAnda terdeteksi ${jenisPelanggaran}.\nJika diulangi 1 KALI LAGI, ujian akan dihentikan paksa dan nilai dikirim seadanya!`);
+        document.documentElement.requestFullscreen().catch(() => {}); // Paksa kembali ke fullscreen
+      } else if (warningCount >= 2) {
+        alert("PELANGGARAN FATAL!\nAnda telah melanggar aturan 2 kali. Ujian dihentikan paksa sekarang.");
+        isSubmitting = true;
+        prosesSelesai(); // Langsung kirim jawaban tanpa konfirmasi
+      }
+    }
+
+    // Deteksi Ganti Tab / Minimize Aplikasi
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "hidden" && !document.getElementById('exam-page').classList.contains('hidden')) {
-        warningCount++;
-        alert(`PERINGATAN! Anda terdeteksi meninggalkan halaman ujian. (Peringatan ${warningCount}/3)`);
-        if (warningCount >= 3) { 
-          alert("Ujian dihentikan paksa karena pelanggaran berulang!"); 
-          prosesSelesai(); 
-        }
+      if (document.visibilityState === "hidden") {
+        prosesPelanggaran("berganti tab atau meminimalkan browser");
+      }
+    });
+
+    // Deteksi Keluar dari Fullscreen (Tarik layar dari atas/bawah)
+    document.addEventListener("fullscreenchange", () => {
+      if (!document.fullscreenElement) {
+        prosesPelanggaran("keluar dari mode layar penuh (Full Screen)");
       }
     });
 
@@ -257,6 +279,7 @@
     // --- PROSES SUBMIT ---
     function selesaiUjian() {
       if (confirm("Apakah Anda yakin ingin mengumpulkan jawaban?")) {
+        isSubmitting = true; // Beri tahu sistem anti-cheat bahwa ini adalah kirim normal
         prosesSelesai();
       }
     }
